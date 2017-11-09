@@ -401,6 +401,78 @@ func TestGetMeshConfig(t *testing.T) {
 	}
 }
 
+func TestGetSidecarTemplate(t *testing.T) {
+	_, cl := makeClient(t)
+	t.Parallel()
+	ns, err := util.CreateNamespace(cl)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	defer util.DeleteNamespace(cl, ns)
+
+	validConfig := `
+initContainers:
+- name: istio-init
+  image: "gcr.io/istio-testing/proxy_init:3101ea9d82a5f83b699c2d3245b371a19fa6bef4"   
+  args: ["-p","15001", "-u", "1337"]
+  imagePullPolicy: "IfNotPresent"
+  securityContext:
+    capabilities
+      add:
+      - NET_ADMIN
+    priviledged: true
+  restartPolicy: Always
+`
+
+	validConfigYAML, err := yaml.Marshal(&validConfig)
+	if err != nil {
+		t.Fatalf("Failed to create test config data: %v", err)
+	}
+	cases := []struct {
+		name      string
+		configMap *v1.ConfigMap
+		queryName string
+		wantErr   bool
+		want      Config
+	}{
+		{
+			name:      "valid config for initcontainer",
+			queryName: "valid-config-for-initcontainer",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Name: "valid-config-for-initcontainer"},
+				Data: map[string]string{
+					SidecarConfigMapKey: string(validConfigYAML),
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, c := range cases {
+		_, err = cl.CoreV1().ConfigMaps(ns).Create(c.configMap)
+		if err != nil {
+			t.Fatalf("%v: Create failed: %v", c.name, err)
+		}
+		t.Errorf(string(c.configMap))
+		got, err := GetSidecarTemplate(cl, ns, c.queryName)
+		gotErr := err != nil
+		if gotErr != c.wantErr {
+			t.Fatalf("%v: GetSidecarTemplate returned wrong error value: got %v want %v: err=%v", c.name, gotErr, c.wantErr, err)
+		}
+		if gotErr {
+			continue
+		}
+		if !reflect.DeepEqual(got, &c.want) {
+			t.Fatalf("%v: GetSidecarTemplate returned the wrong result: \ngot  %v \nwant %v", c.name, got, &c.want)
+		}
+		if err = cl.CoreV1().ConfigMaps(ns).Delete(c.configMap.Name, &metav1.DeleteOptions{}); err != nil {
+			t.Fatalf("%v: Delete failed: %v", c.name, err)
+		}
+	}
+
+}
+
+// TODO: Move this test to a dedicated e2e pkg
 func TestGetInitializerConfig(t *testing.T) {
 	_, cl := makeClient(t)
 	t.Parallel()

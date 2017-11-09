@@ -22,7 +22,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
-	"k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/platform/kube/inject"
@@ -119,6 +118,15 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				}()
 			}
 
+			var reader io.Reader
+			if inFilename == "-" {
+				reader = os.Stdin
+			} else {
+				if reader, err = os.Open(sidecarConfig); err != nil {
+					return err
+				}
+			}
+
 			if versionStr == "" {
 				versionStr = version.Line()
 			}
@@ -128,30 +136,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				return err
 			}
 
-			_, meshConfig, err := inject.GetMeshConfig(client, istioNamespace, meshConfigMapName)
-			if err != nil {
-				return fmt.Errorf("could not read valid configmap %q from namespace  %q: %v - "+
-					"Re-run kube-inject with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
-					meshConfigMapName, istioNamespace, err)
-			}
-
-			config := &inject.Config{
-				Policy:            inject.DefaultInjectionPolicy,
-				IncludeNamespaces: []string{v1.NamespaceAll},
-				Params: inject.Params{
-					InitImage:       inject.InitImageName(hub, tag, debugMode),
-					ProxyImage:      inject.ProxyImageName(hub, tag, debugMode),
-					Verbosity:       verbosity,
-					SidecarProxyUID: sidecarProxyUID,
-					Version:         versionStr,
-					EnableCoreDump:  enableCoreDump,
-					Mesh:            meshConfig,
-					ImagePullPolicy: imagePullPolicy,
-					IncludeIPRanges: includeIPRanges,
-					DebugMode:       debugMode,
-				},
-			}
-			return inject.IntoResourceFile(config, reader, writer)
+			return inject.IntoResourceFile(sidecarConfig, reader, writer)
 		},
 	}
 )
@@ -166,6 +151,8 @@ func init() {
 		"", "Input Kubernetes resource filename")
 	injectCmd.PersistentFlags().StringVarP(&outFilename, "output", "o",
 		"", "Modified output Kubernetes resource filename")
+	injectCMD.PersistentFlags().StringVarP(&sidecarConfig, "config", "c",
+		"", "Configuration file for customizing the sidecar proxy")
 	injectCmd.PersistentFlags().IntVar(&verbosity, "verbosity",
 		inject.DefaultVerbosity, "Runtime verbosity")
 	injectCmd.PersistentFlags().Int64Var(&sidecarProxyUID, "sidecarProxyUID",
