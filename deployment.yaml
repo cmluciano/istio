@@ -1,0 +1,11 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: hello
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: hello
+          image: "fake.docker.io/google-samples/hello-go-gke:1.0"

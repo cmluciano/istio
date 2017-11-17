@@ -35,7 +35,6 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	v2alpha1 "k8s.io/api/batch/v2alpha1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -43,7 +42,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/istio/pilot/tools/version"
 )
 
 // per-sidecar policy and status (deployment, job, statefulset, pod, etc)
@@ -162,12 +160,27 @@ type Config struct {
 	// deprecate if InitializerConfiguration becomes namespace aware
 	ExcludeNamespaces []string `json:"excludeNamespaces"`
 
-	// Params specifies the parameters of the injected sidcar template
-	Params Params `json:"params"`
-
 	// InitializerName specifies the name of the initializer.
 	InitializerName string `json:"initializerName"`
 }
+
+// func GetSidecarConfig(kube kubernetes.Interface, namespace, sidecarConfigName string) (string, error) {
+// 	var configMap *v1.ConfigMap
+// 	var err error
+// 	if errPoll := wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
+// 		if configMap, err = kube.CoreV1().ConfigMaps(namespace).Get(sidecarConfigName, metav1.GetOptions{}); err != nil {
+// 			return false, err
+// 		}
+// 		return true, nil
+// 	}); errPoll != nil {
+// 		return nil, errPoll
+// 	}
+// 	data, exists := configMap.Data[SidecarConfigMapKey]
+// 	if !exists {
+// 		return nil, fmt.Errorf("missing configuration map key %q", SidecarConfigMapKey)
+// 	}
+// 	return data, nil
+// }
 
 // GetInitializerConfig fetches the initializer configuration from a Kubernetes ConfigMap.
 func GetInitializerConfig(kube kubernetes.Interface, namespace, injectConfigName string) (*Config, error) {
@@ -205,24 +218,6 @@ func GetInitializerConfig(kube kubernetes.Interface, namespace, injectConfigName
 		}
 	}
 
-	// apply safe defaults if not specified
-	switch c.Policy {
-	case InjectionPolicyDisabled, InjectionPolicyEnabled:
-	default:
-		c.Policy = DefaultInjectionPolicy
-	}
-	if c.Params.InitImage == "" {
-		c.Params.InitImage = InitImageName(DefaultHub, version.Info.Version, c.Params.DebugMode)
-	}
-	if c.Params.ProxyImage == "" {
-		c.Params.ProxyImage = ProxyImageName(DefaultHub, version.Info.Version, c.Params.DebugMode)
-	}
-	if c.Params.SidecarProxyUID == 0 {
-		c.Params.SidecarProxyUID = DefaultSidecarProxyUID
-	}
-	if c.Params.ImagePullPolicy == "" {
-		c.Params.ImagePullPolicy = DefaultImagePullPolicy
-	}
 	if c.InitializerName == "" {
 		c.InitializerName = DefaultInitializerName
 	}
@@ -328,11 +323,11 @@ type SidecarConfig struct {
 	Volumes        v1.Volume    `json:"volumes"`
 }
 
-func intoObject(injectTemplate string, in interface{}) (interface{}, error) {
-	obj, err := meta.Accessor(in)
-	if err != nil {
-		return nil, err
-	}
+func intoObject(injectTemplate []byte, in interface{}) (interface{}, error) {
+	// obj, err := meta.Accessor(in)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	out, err := injectScheme.DeepCopy(in)
 	if err != nil {
@@ -373,12 +368,18 @@ func intoObject(injectTemplate string, in interface{}) (interface{}, error) {
 		return out, nil
 	}
 
-	var serviceCluster string
-	if val, ok := templateObjectMeta.GetLabels()["app"]; ok {
-		serviceCluster = val
+	for _, m := range []*metav1.ObjectMeta{objectMeta, templateObjectMeta} {
+		if m.Annotations == nil {
+			m.Annotations = make(map[string]string)
+		}
+		m.Annotations[istioSidecarAnnotationStatusKey] = "injected-version-2"
 	}
 
-	t := template.Must(template.New("inject").Parse(injectTemplate))
+	// if serviceCluster, ok := ObjectMeta.GetLabels()["app"]; ok {
+	// 	*serviceCluster = val
+	// }
+
+	t := template.Must(template.New("inject").Parse(string(injectTemplate)))
 	var tmpl bytes.Buffer
 	if err := t.Execute(&tmpl, &templatePodSpec); err != nil {
 		glog.Fatalf(err.Error())
@@ -387,6 +388,12 @@ func intoObject(injectTemplate string, in interface{}) (interface{}, error) {
 	if err := yaml.Unmarshal(tmpl.Bytes(), &sc); err != nil {
 		glog.Fatalf(err.Error())
 	}
+
+	newspec, err := yaml.Marshal(sc)
+	if err != nil {
+		glog.Fatalf(err.Error())
+	}
+	fmt.Println(string(newspec))
 
 	templatePodSpec.InitContainers = append(templatePodSpec.InitContainers, sc.InitContainers)
 	templatePodSpec.Containers = append(templatePodSpec.Containers, sc.Containers)
@@ -397,7 +404,7 @@ func intoObject(injectTemplate string, in interface{}) (interface{}, error) {
 
 // IntoResourceFile injects the istio proxy into the specified
 // kubernetes YAML file.
-func IntoResourceFile(sideCarConfig string, in io.Reader, out io.Writer) error {
+func IntoResourceFile(sidecarConfig []byte, in io.Reader, out io.Writer) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
 		raw, err := reader.Read()
@@ -420,7 +427,7 @@ func IntoResourceFile(sideCarConfig string, in io.Reader, out io.Writer) error {
 			if err = yaml.Unmarshal(raw, obj); err != nil {
 				return err
 			}
-			out, err := intoObject(sideCarConfig, obj) // nolint: vetshadow
+			out, err := intoObject(sidecarConfig, obj) // nolint: vetshadow
 			if err != nil {
 				return err
 			}

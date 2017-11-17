@@ -1,0 +1,16 @@
+containers:
+  - name: envoy
+    image: lyft/envoy:845747db88f102c0fd262ab234308e9e22f693a1
+    volumeMounts:
+      - name: istio-certs
+        mountPath: /etc/certs/
+        readOnly: true
+volumes:
+  - name: istio-certs
+    secret:
+      optional: true
+      {{ if eq .Spec.Template.Spec.ServiceAccountName "" -}}
+      secretName: {{ "istio.default" }}
+      {{ else -}}
+      secretName: {{ printf "istio.%s" .Spec.Template.Spec.ServiceAccountName }}
+      {{ end -}}

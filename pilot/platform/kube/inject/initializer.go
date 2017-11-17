@@ -15,8 +15,6 @@
 package inject
 
 import (
-	"encoding/json"
-
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
@@ -31,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -188,40 +185,43 @@ func (i *Initializer) initialize(in interface{}, patcher patcherFunc) error {
 		return nil
 	}
 
-	out, err := intoObject(i.config, in)
-	if err != nil {
-		return err
-	}
+	//	sidecarConfig string , err := GetSidecarTemplate()
 
-	if obj, err = meta.Accessor(out); err != nil {
-		return err
-	}
+	//out, err := intoObject(i.config, in)
+	// if err != nil {
+	// 	return err
+	//	}
 
-	// Remove self from the list of pending Initializers while
-	// preserving ordering.
-	if pending := obj.GetInitializers().Pending; len(pending) == 1 {
-		obj.SetInitializers(nil)
-	} else {
-		obj.GetInitializers().Pending = append(pending[:0], pending[1:]...)
-	}
+	// if obj, err = meta.Accessor(out); err != nil {
+	// 	return err
+	// }
 
-	prevData, err := json.Marshal(in)
-	if err != nil {
-		return err
-	}
-	currData, err := json.Marshal(out)
-	if err != nil {
-		return err
-	}
-	rObj, err := injectScheme.New(gvk)
-	if err != nil {
-		return err
-	}
-	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(prevData, currData, rObj)
-	if err != nil {
-		return err
-	}
-	return patcher(obj.GetNamespace(), obj.GetName(), patchBytes, rObj)
+	// // Remove self from the list of pending Initializers while
+	// // preserving ordering.
+	// if pending := obj.GetInitializers().Pending; len(pending) == 1 {
+	// 	obj.SetInitializers(nil)
+	// } else {
+	// 	obj.GetInitializers().Pending = append(pending[:0], pending[1:]...)
+	// }
+
+	// prevData, err := json.Marshal(in)
+	// if err != nil {
+	// 	return err
+	// }
+	// currData, err := json.Marshal(out)
+	// if err != nil {
+	// 	return err
+	// }
+	// rObj, err := injectScheme.New(gvk)
+	// if err != nil {
+	// 	return err
+	// }
+	// patchBytes, err := strategicpatch.CreateTwoWayMergePatch(prevData, currData, rObj)
+	// if err != nil {
+	// 	return err
+	// }
+	// return patcher(obj.GetNamespace(), obj.GetName(), patchBytes, rObj)
+	return nil
 }
 
 // Run runs the Initializer controller.

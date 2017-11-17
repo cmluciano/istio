@@ -18,12 +18,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/platform/kube/inject"
 	"istio.io/istio/pilot/tools/version"
 )
@@ -40,8 +40,9 @@ var (
 	includeIPRanges   string
 	debugMode         bool
 
-	inFilename  string
-	outFilename string
+	inFilename    string
+	outFilename   string
+	sidecarConfig string
 )
 
 var (
@@ -117,12 +118,11 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 					}
 				}()
 			}
+			var scConfig []byte
 
-			var reader io.Reader
-			if inFilename == "-" {
-				reader = os.Stdin
-			} else {
-				if reader, err = os.Open(sidecarConfig); err != nil {
+			if sidecarConfig == "-" {
+				scConfig, err = ioutil.ReadFile(sidecarConfig)
+				if err != nil {
 					return err
 				}
 			}
@@ -131,12 +131,12 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				versionStr = version.Line()
 			}
 
-			_, client, err := kube.CreateInterface(kubeconfig)
-			if err != nil {
-				return err
-			}
+			// _, client, err := kube.CreateInterface(kubeconfig)
+			// if err != nil {
+			// 	return err
+			// }
 
-			return inject.IntoResourceFile(sidecarConfig, reader, writer)
+			return inject.IntoResourceFile(scConfig, reader, writer)
 		},
 	}
 )
@@ -151,7 +151,7 @@ func init() {
 		"", "Input Kubernetes resource filename")
 	injectCmd.PersistentFlags().StringVarP(&outFilename, "output", "o",
 		"", "Modified output Kubernetes resource filename")
-	injectCMD.PersistentFlags().StringVarP(&sidecarConfig, "config", "c",
+	injectCmd.PersistentFlags().StringVarP(&sidecarConfig, "config", "s",
 		"", "Configuration file for customizing the sidecar proxy")
 	injectCmd.PersistentFlags().IntVar(&verbosity, "verbosity",
 		inject.DefaultVerbosity, "Runtime verbosity")

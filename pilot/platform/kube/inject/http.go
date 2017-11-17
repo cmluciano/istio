@@ -85,10 +85,10 @@ func (r *HTTPServer) inject(request *restful.Request, response *restful.Response
 	}
 
 	var out bytes.Buffer
-	if err := IntoResourceFile(r.config, bytes.NewBuffer(body), &out); err != nil {
-		onError(err, http.StatusInternalServerError, body, response)
-		return
-	}
+	// if err := IntoResourceFile(r.config, bytes.NewBuffer(body), &out); err != nil {
+	// 	onError(err, http.StatusInternalServerError, body, response)
+	// 	return
+	// }
 
 	if _, err := response.Write(out.Bytes()); err != nil {
 		glog.Warning(err.Error())
