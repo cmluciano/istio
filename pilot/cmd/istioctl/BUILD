@@ -16,6 +16,7 @@ go_library(
         "//pilot/model:go_default_library",
         "//pilot/platform/kube:go_default_library",
         "//pilot/platform/kube/inject:go_default_library",
+        "//pilot/proxy:go_default_library",
         "//pilot/tools/version:go_default_library",
         "//pkg/log:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",

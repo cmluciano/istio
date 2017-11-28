@@ -16,6 +16,7 @@ package inject
 
 import (
 	"encoding/json"
+	"html/template"
 
 	"github.com/davecgh/go-spew/spew"
 	// TODO(nmittler): Remove this
@@ -56,9 +57,10 @@ var ignoredNamespaces = []string{
 // based on the InjectionPolicy and per-resource policy (see
 // istioSidecarAnnotationPolicyKey).
 type Initializer struct {
-	clientset   kubernetes.Interface
-	controllers []cache.Controller
-	config      *Config
+	clientset         kubernetes.Interface
+	controllers       []cache.Controller
+	initializerConfig *InitializerConfig
+	meshConfig        template.Template
 }
 
 var (
@@ -93,10 +95,12 @@ func init() {
 }
 
 // NewInitializer creates a new instance of the Istio sidecar initializer.
-func NewInitializer(restConfig *rest.Config, config *Config, cl kubernetes.Interface) (*Initializer, error) {
+func NewInitializer(restConfig *rest.Config, initializerConfig *InitializerConfig, meshConfig template.Template, cl kubernetes.Interface) (*Initializer, error) {
+
 	i := &Initializer{
-		clientset: cl,
-		config:    config,
+		clientset:         cl,
+		initializerConfig: initializerConfig,
+		meshConfig:        meshConfig,
 	}
 
 	for k := range kinds {
@@ -186,11 +190,16 @@ func (i *Initializer) initialize(in interface{}, patcher patcherFunc) error {
 	if len(pendingInitializers) == 0 {
 		return nil
 	}
-	if i.config.InitializerName != pendingInitializers[0].Name {
+	if i.initializerConfig.InitializerName != pendingInitializers[0].Name {
 		return nil
 	}
 
-	out, err := intoObject(i.config, in)
+	var out interface{}
+	if !injectRequired(i.initializerConfig.IncludeNamespaces, ignoredNamespaces, i.initializerConfig.ExcludeNamespaces, i.initializerConfig.Policy, obj) {
+		out, err = injectScheme.DeepCopy(in)
+	} else {
+		out, err = intoObject(&i.meshConfig, in)
+	}
 	if err != nil {
 		return err
 	}
@@ -228,10 +237,10 @@ func (i *Initializer) initialize(in interface{}, patcher patcherFunc) error {
 
 // Run runs the Initializer controller.
 func (i *Initializer) Run(stopCh <-chan struct{}) {
-	log.Info("Starting Istio sidecar initializer...")
-	log.Infof("Initializer name set to: %s", i.config.InitializerName)
-	log.Infof("Options: %v", spew.Sdump(i.config))
 
+	log.Info("Starting Istio sidecar initializer...")
+	log.Infof("Initializer name set to: %s", i.initializerConfig.InitializerName)
+	log.Infof("Options: %v", spew.Sdump(i.initializerConfig))
 	log.Infof("Supported kinds:")
 	for _, kind := range kinds {
 		if gvk, _, err := injectScheme.ObjectKind(kind.obj); err != nil {

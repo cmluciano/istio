@@ -6,6 +6,7 @@ go_library(
         "configmap.go",
         "initializer.go",
         "inject.go",
+        "mesh.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -42,6 +43,27 @@ go_library(
         "@io_k8s_client_go//rest:go_default_library",
         "@io_k8s_client_go//tools/cache:go_default_library",
     ],
+)
+
+go_library(
+    name = "MeshConfig",
+    srcs = [
+        "mesh.go",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pilot/proxy:go_default_library",
+        "@io_istio_api//mesh/v1alpha1:go_default_library",
+    ],
+)
+
+go_test(
+    name = "MeshConfigTest",
+    size = "small",
+    srcs = [
+        "mesh_test.go",
+    ],
+    library = "MeshConfig",
 )
 
 go_test(

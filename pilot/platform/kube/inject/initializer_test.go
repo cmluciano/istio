@@ -55,8 +55,9 @@ func TestInitializerRun(t *testing.T) {
 	}
 	defer util.DeleteNamespace(cl, ns)
 
-	config := &Config{}
-	i, err := NewInitializer(restConfig, config, cl)
+	config := &InitializerConfig{}
+	meshConfig := inject.DefaultMeshTemplate()
+	i, err := NewInitializer(restConfig, config, meshConfig, cl)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -198,20 +199,11 @@ func TestInitialize(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		config := &Config{
+		config := &InitializerConfig{
 			Policy:            c.policy,
 			IncludeNamespaces: c.includeNamespaces,
 			ExcludeNamespaces: c.excludeNamespaces,
-			Params: Params{
-				InitImage:       InitImageName(unitTestHub, unitTestTag, c.wantDebug),
-				ProxyImage:      ProxyImageName(unitTestHub, unitTestTag, c.wantDebug),
-				ImagePullPolicy: "IfNotPresent",
-				Verbosity:       DefaultVerbosity,
-				SidecarProxyUID: DefaultSidecarProxyUID,
-				Version:         "12345678",
-				Mesh:            &mesh,
-			},
-			InitializerName: DefaultInitializerName,
+			InitializerName:   DefaultInitializerName,
 		}
 		i, err := NewInitializer(restConfig, config, cl)
 		if err != nil {

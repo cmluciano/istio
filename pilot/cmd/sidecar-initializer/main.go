@@ -15,6 +15,7 @@
 package main
 
 import (
+	"io"
 	"os"
 
 	// TODO(nmittler): Remove this
@@ -40,6 +41,16 @@ var (
 	}{
 		loggingOptions: log.NewOptions(),
 	}
+)
+
+func getRootCmd() *cobra.Command {
+	flags := struct {
+		kubeconfig   string
+		meshConfig   string
+		injectConfig string
+		namespace    string
+		port         int
+	}{}
 
 	rootCmd = &cobra.Command{
 		Use:   "sidecar-initializer",
@@ -61,11 +72,13 @@ var (
 			}
 
 			// retrieve mesh configuration separately
-			if config.Params.Mesh, err = cmd.ReadMeshConfig(flags.meshconfig); err != nil {
+			var meshConfig io.Reader
+			meshConfig, err = inject.GetMeshConfigMap(client, flags.namespace, flags.meshConfig)
+			if err != nil {
 				return multierror.Prefix(err, "failed to read mesh configuration.")
 			}
 
-			initializer, err := inject.NewInitializer(restConfig, config, client)
+			initializer, err := inject.NewInitializer(restConfig, config, meshConfig, client)
 			if err != nil {
 				return multierror.Prefix(err, "failed to create initializer")
 			}
@@ -78,12 +91,12 @@ var (
 			return nil
 		},
 	}
-)
+}
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	rootCmd.PersistentFlags().StringVar(&flags.meshconfig, "meshconfig", "/etc/istio/config/mesh",
+	rootCmd.PersistentFlags().StringVar(&flags.meshConfig, "meshconfig", "mesh-config",
 		"File name for Istio mesh configuration")
 	rootCmd.PersistentFlags().StringVar(&flags.injectConfig, "injectConfig", "istio-inject",
 		"Name of initializer configuration ConfigMap")

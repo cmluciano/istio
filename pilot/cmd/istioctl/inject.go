@@ -17,16 +17,17 @@ package main
 import (
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"os"
 
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
-	"k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/platform/kube/inject"
+	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
 )
@@ -42,9 +43,11 @@ var (
 	imagePullPolicy   string
 	includeIPRanges   string
 	debugMode         bool
+	generateMesh      bool
 
-	inFilename  string
-	outFilename string
+	inFilename   string
+	outFilename  string
+	meshFileName string
 )
 
 var (
@@ -83,6 +86,20 @@ istioctl kube-inject -f deployment.yaml -o deployment-with-istio.yaml
 kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 `,
 		RunE: func(_ *cobra.Command, _ []string) (err error) {
+			if generateMesh == true {
+				mesh := proxy.DefaultMeshConfig()
+				mc := &inject.Config{
+					inject.Init{"", []string{}, ""},
+					inject.Container{"", []string{}, "", []string{}},
+					mesh,
+				}
+				err := inject.DefaultMeshTemplate(mc)
+				if err != nil {
+					return err
+				}
+				return nil
+
+			}
 			if inFilename == "" {
 				return errors.New("filename not specified (see --filename or -f)")
 			}
@@ -125,33 +142,24 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				versionStr = version.Line()
 			}
 
-			_, client, err := kube.CreateInterface(kubeconfig)
-			if err != nil {
-				return err
-			}
-
-			_, meshConfig, err := inject.GetMeshConfig(client, istioNamespace, meshConfigMapName)
-			if err != nil {
-				return fmt.Errorf("could not read valid configmap %q from namespace  %q: %v - "+
-					"Re-run kube-inject with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
-					meshConfigMapName, istioNamespace, err)
-			}
-
-			config := &inject.Config{
-				Policy:            inject.DefaultInjectionPolicy,
-				IncludeNamespaces: []string{v1.NamespaceAll},
-				Params: inject.Params{
-					InitImage:       inject.InitImageName(hub, tag, debugMode),
-					ProxyImage:      inject.ProxyImageName(hub, tag, debugMode),
-					Verbosity:       verbosity,
-					SidecarProxyUID: sidecarProxyUID,
-					Version:         versionStr,
-					EnableCoreDump:  enableCoreDump,
-					Mesh:            meshConfig,
-					ImagePullPolicy: imagePullPolicy,
-					IncludeIPRanges: includeIPRanges,
-					DebugMode:       debugMode,
-				},
+			var config *template.Template
+			if meshFileName == "" {
+				_, client, err := kube.CreateInterface(kubeconfig)
+				if err != nil {
+					return err
+				}
+				fmt.Println("got into no meshPassed")
+				config, err = inject.GetMeshConfigMap(client, istioNamespace, meshConfigMapName)
+				if err != nil {
+					glog.Errorf("could not read valid configmap %q from namespace  %q: %v - "+
+						"Re-run kube-inject with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
+						meshConfigMapName, istioNamespace, err)
+					return err
+				}
+			} else {
+				if config, err = template.ParseFiles(meshFileName); err != nil {
+					return err
+				}
 			}
 			return inject.IntoResourceFile(config, reader, writer)
 		},
@@ -168,13 +176,16 @@ func init() {
 		"", "Input Kubernetes resource filename")
 	injectCmd.PersistentFlags().StringVarP(&outFilename, "output", "o",
 		"", "Modified output Kubernetes resource filename")
+	injectCmd.PersistentFlags().StringVarP(&meshFileName, "meshconfig", "m",
+		"", "Config template for Envoy Mesh")
+	injectCmd.PersistentFlags().BoolVar(&generateMesh, "generate", false, "Generate a default template for Mesh Configuration")
 	injectCmd.PersistentFlags().IntVar(&verbosity, "verbosity",
 		inject.DefaultVerbosity, "Runtime verbosity")
 	injectCmd.PersistentFlags().Int64Var(&sidecarProxyUID, "sidecarProxyUID",
 		inject.DefaultSidecarProxyUID, "Envoy sidecar UID")
 	injectCmd.PersistentFlags().StringVar(&versionStr, "setVersionString",
 		"", "Override version info injected into resource")
-	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", "istio",
+	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", "mesh-config",
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", inject.ConfigMapKey))
 
 	// Default --coreDump=true for pre-alpha development. Core dump
