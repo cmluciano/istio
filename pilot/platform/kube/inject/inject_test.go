@@ -192,7 +192,7 @@ func TestIntoResourceFile(t *testing.T) {
 			mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
 		}
 
-		config := &Config{
+		config := &InititializerConfig{
 			Policy:            InjectionPolicyEnabled,
 			IncludeNamespaces: c.include,
 			ExcludeNamespaces: c.exclude,
@@ -207,10 +207,6 @@ func TestIntoResourceFile(t *testing.T) {
 				Mesh:            &mesh,
 				DebugMode:       c.debugMode,
 			},
-		}
-
-		if c.imagePullPolicy != "" {
-			config.Params.ImagePullPolicy = c.imagePullPolicy
 		}
 
 		in, err := os.Open(c.in)

@@ -23,10 +23,10 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"html/template"
 	"io"
 	"reflect"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -34,10 +34,7 @@ import (
 	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
-
-	"k8s.io/api/batch/v2alpha1"
 	v2alpha1 "k8s.io/api/batch/v2alpha1"
-	"k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -46,6 +43,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/log"
 )
 
 // per-sidecar policy and status (deployment, job, statefulset, pod, etc)
@@ -335,11 +333,11 @@ func injectIntoSpec(meshConfig *template.Template, spec *v1.PodSpec, metadata *m
 
 	var tmpl bytes.Buffer
 	if err := meshConfig.Execute(&tmpl, &data); err != nil {
-		glog.Fatalf(err.Error())
+		log.Warnf(err.Error())
 	}
 	sc := SidecarConfig{}
 	if err := yaml.Unmarshal(tmpl.Bytes(), &sc); err != nil {
-		glog.Fatalf(err.Error())
+		log.Warnf(err.Error())
 	}
 
 	spec.InitContainers = append(spec.InitContainers, sc.InitContainers...)

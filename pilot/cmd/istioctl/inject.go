@@ -17,9 +17,9 @@ package main
 import (
 	"errors"
 	"fmt"
-	"html/template"
 	"io"
 	"os"
+	"text/template"
 
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"

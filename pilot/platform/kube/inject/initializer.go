@@ -16,7 +16,7 @@ package inject
 
 import (
 	"encoding/json"
-	"html/template"
+	"text/template"
 
 	"github.com/davecgh/go-spew/spew"
 	// TODO(nmittler): Remove this
@@ -95,12 +95,12 @@ func init() {
 }
 
 // NewInitializer creates a new instance of the Istio sidecar initializer.
-func NewInitializer(restConfig *rest.Config, initializerConfig *InitializerConfig, meshConfig template.Template, cl kubernetes.Interface) (*Initializer, error) {
+func NewInitializer(restConfig *rest.Config, initializerConfig *InitializerConfig, meshConfig *template.Template, cl kubernetes.Interface) (*Initializer, error) {
 
 	i := &Initializer{
 		clientset:         cl,
 		initializerConfig: initializerConfig,
-		meshConfig:        meshConfig,
+		meshConfig:        *meshConfig,
 	}
 
 	for k := range kinds {

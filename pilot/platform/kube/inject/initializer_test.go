@@ -56,8 +56,17 @@ func TestInitializerRun(t *testing.T) {
 	defer util.DeleteNamespace(cl, ns)
 
 	config := &InitializerConfig{}
-	meshConfig := inject.DefaultMeshTemplate()
-	i, err := NewInitializer(restConfig, config, meshConfig, cl)
+	mesh := proxy.DefaultMeshConfig()
+	mc := &Config{
+		Init{"", []string{}, ""},
+		Container{"", []string{}, "", []string{}},
+		mesh,
+	}
+	meshTemplate, err := CreateMeshTemplate(mc)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	i, err := NewInitializer(restConfig, config, meshTemplate, cl)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -78,7 +87,7 @@ func TestInitialize(t *testing.T) {
 	}
 	defer util.DeleteNamespace(cl, ns)
 
-	mesh := proxy.DefaultMeshConfig()
+	// mesh := proxy.DefaultMeshConfig()
 
 	cases := []struct {
 		name                   string
@@ -205,7 +214,17 @@ func TestInitialize(t *testing.T) {
 			ExcludeNamespaces: c.excludeNamespaces,
 			InitializerName:   DefaultInitializerName,
 		}
-		i, err := NewInitializer(restConfig, config, cl)
+		mesh := proxy.DefaultMeshConfig()
+		mc := &Config{
+			Init{"", []string{}, ""},
+			Container{"", []string{}, "", []string{}},
+			mesh,
+		}
+		meshTemplate, err := CreateMeshTemplate(mc)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		i, err := NewInitializer(restConfig, config, meshTemplate, cl)
 		if err != nil {
 			t.Fatal(err.Error())
 		}

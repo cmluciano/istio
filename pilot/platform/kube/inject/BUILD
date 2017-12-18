@@ -71,7 +71,6 @@ go_test(
     size = "small",
     srcs = [
         "initializer_test.go",
-        "inject_test.go",
     ],
     data = glob(["testdata/*.yaml*"]),
     library = ":go_default_library",
