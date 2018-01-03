@@ -148,10 +148,9 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				if err != nil {
 					return err
 				}
-				fmt.Println("got into no meshPassed")
 				config, err = inject.GetMeshConfigMap(client, istioNamespace, meshConfigMapName)
 				if err != nil {
-					glog.Errorf("could not read valid configmap %q from namespace  %q: %v - "+
+					log.Errorf("could not read valid configmap %q from namespace  %q: %v - "+
 						"Re-run kube-inject with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
 						meshConfigMapName, istioNamespace, err)
 					return err

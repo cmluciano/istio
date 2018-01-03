@@ -41,16 +41,6 @@ var (
 	}{
 		loggingOptions: log.NewOptions(),
 	}
-)
-
-func getRootCmd() *cobra.Command {
-	flags := struct {
-		kubeconfig   string
-		meshConfig   string
-		injectConfig string
-		namespace    string
-		port         int
-	}{}
 
 	rootCmd = &cobra.Command{
 		Use:   "sidecar-initializer",
@@ -91,7 +81,7 @@ func getRootCmd() *cobra.Command {
 			return nil
 		},
 	}
-}
+)
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "",
