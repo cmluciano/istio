@@ -15,6 +15,7 @@
 package inject
 
 import (
+	"bytes"
 	"os"
 	"strings"
 	"text/template"
@@ -179,10 +180,11 @@ func DefaultMeshTemplate(mc *Config) error {
 
 func CreateMeshTemplate(mc *Config) (*template.Template, error) {
 	t := template.Must(template.New("inject").Parse(meshTemplate))
-	if err := t.Execute(os.Stdout, mc); err != nil {
+	var tmpl bytes.Buffer
+	if err := t.Execute(&tmpl, mc); err != nil {
 		return nil, err
 	}
-	return t, nil
+	return template.Must(template.New("genTemplate").Parse(tmpl.String())), nil
 }
 
 func escape(in string) string {

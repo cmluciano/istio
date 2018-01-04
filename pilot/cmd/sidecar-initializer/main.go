@@ -15,8 +15,8 @@
 package main
 
 import (
-	"io"
 	"os"
+	"text/template"
 
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
@@ -60,10 +60,10 @@ var (
 			if err != nil {
 				return multierror.Prefix(err, "failed to read initializer configuration")
 			}
+			var meshConfig *template.Template
 
 			// retrieve mesh configuration separately
-			var meshConfig io.Reader
-			meshConfig, err = inject.GetMeshConfigMap(client, flags.namespace, flags.meshConfig)
+			meshConfig, err = inject.GetMeshConfigMap(client, flags.namespace, flags.meshconfig)
 			if err != nil {
 				return multierror.Prefix(err, "failed to read mesh configuration.")
 			}
@@ -86,7 +86,7 @@ var (
 func init() {
 	rootCmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	rootCmd.PersistentFlags().StringVar(&flags.meshConfig, "meshconfig", "mesh-config",
+	rootCmd.PersistentFlags().StringVar(&flags.meshconfig, "meshconfig", "mesh-config",
 		"File name for Istio mesh configuration")
 	rootCmd.PersistentFlags().StringVar(&flags.injectConfig, "injectConfig", "istio-inject",
 		"Name of initializer configuration ConfigMap")
