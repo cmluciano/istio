@@ -92,6 +92,7 @@ func convertRouteRule(in *v1alpha1.RouteRule) *v1alpha3.HTTPRoute {
 		Mirror:           convertMirror(in.Mirror),
 		CorsPolicy:       convertCORSPolicy(in.CorsPolicy),
 		AppendHeaders:    in.AppendHeaders,
+		RemoveResponseHeaders: in.RemoveResponseHeaders,
 	}
 }
 

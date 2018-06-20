@@ -651,6 +651,27 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			},
 		},
 			valid: false},
+		{name: "remove response headers", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			RemoveResponseHeaders: map[string]string{
+				"name": "val",
+			},
+		},
+			valid: true},
+		{name: "remove response bad name", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			RemoveResponseHeaders: map[string]string{
+				"": "val",
+			},
+		},
+			valid: false},
+		{name: "remove response bad val", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			RemoveResponseHeaders: map[string]string{
+				"name": "",
+			},
+		},
+			valid: false},
 		{name: "mirror", in: &routing.RouteRule{
 			Destination: &routing.IstioService{Name: "foobar"},
 			Mirror:      &routing.IstioService{Name: "barfoo"},

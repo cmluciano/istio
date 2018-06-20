@@ -820,6 +820,16 @@ func ValidateRouteRule(msg proto.Message) error {
 		}
 	}
 
+	for name, val := range value.RemoveResponseHeaders {
+		if err := ValidateHTTPHeaderName(name); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+		if val == "" {
+			errs = multierror.Append(errs,
+				fmt.Errorf("removed header %q must have a non-empty value", name))
+		}
+	}
+
 	if value.CorsPolicy != nil {
 		if value.CorsPolicy.MaxAge != nil {
 			if err := ValidateDuration(value.CorsPolicy.MaxAge); err != nil {
@@ -1940,6 +1950,9 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	}
 
 	for name := range http.AppendHeaders {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+	for name := range http.RemoveResponseHeaders {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 	}
 	errs = appendErrors(errs, validateCORSPolicy(http.CorsPolicy))
